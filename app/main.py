@@ -32,5 +32,17 @@ def airportName():
       return 'IATA code not found : %s' % iata_code, 400
     return maybe_name, 200
 
+@app.route('/searchPerson', methods=['GET'])
+def searchPerson():
+    """Search for person info.."""
+    firstName = request.args.get('firstName')
+    lastName = request.args.get('lastName')
+    if firstName is None:
+      return 'No first Name provided.', 400
+    if lastName is None:
+      return 'No last Name provided.', 400
+    result = 'You looked for: %s, %s' % (firstName, lastName)
+    return result, 200
+
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)

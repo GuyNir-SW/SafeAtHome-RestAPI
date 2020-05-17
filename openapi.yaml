@@ -39,3 +39,25 @@ paths:
             type: string
         400:
           description: "The IATA code is invalid or missing."
+  "/searchPerson":
+    get:
+      description: "Get the information about a single person."
+      operationId: "searchPerson"
+      parameters:
+        -
+          name: firstName
+          in: query
+          required: true
+          type: string
+        -
+          name: lastName
+          in: query
+          required: true
+          type: string
+      responses:
+        200:
+          description: "Success."
+          schema:
+            type: string
+        400:
+          description: "There was some error."
