@@ -3,11 +3,9 @@ import os
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard to guess string'
-
     @staticmethod
     def init_app(app):
         pass
-
 
 class ProductionConfig(Config):
     MONGODB_HOST = os.environ.get('DATABASE_URL') or "mongodb+srv://tsilahadad:Noam3012@michal-sela-dspmm.gcp.mongodb.net/michal-sela?retryWrites=true&w=majority"
