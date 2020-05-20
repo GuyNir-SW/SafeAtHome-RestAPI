@@ -1,26 +1,40 @@
-# Copyright 2017 Google Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
----
 swagger: "2.0"
 info:
-  title: "Airport Codes"
-  description: "Get the name of an airport from its three-letter IATA code."
+  title: "Safe At Home"
+  description: "Rest API for Michal Sela hackathon"
   version: "1.0.0"
 # This field will be replaced by the deploy_api.sh script.
 host: "YOUR-PROJECT-ID.appspot.com"
 schemes:
   - "https"
+definitions:
+  Report:
+    properties:
+      token:
+        type: string
+      firstName:
+        type: string
+      LastName:
+        type: string
+    required:
+      - token
+      - firstName
+      - LastName
+  NewPerson:
+    properties:
+      token:
+        type: string
+      firstName:
+        type: string
+      lastName:
+        type: string
+      id_num:
+        type: string
+    required:
+      - token
+      - firstName
+      - LastName
+      - id_num
 paths:
   "/airportName":
     get:
@@ -54,6 +68,84 @@ paths:
           in: query
           required: true
           type: string
+      responses:
+        200:
+          description: "Success."
+          schema:
+            type: string
+        400:
+          description: "There was some error."
+  "/users/list":
+    get:
+      description: "get users list"
+      operationId: "get_users_list"
+      responses:
+        200:
+          description: "Success."
+          schema:
+            type: string
+        400:
+          description: "There was some error."
+  "/criminals/list":
+    get:
+      description: "get criminals list"
+      operationId: "get_criminals_list"
+      responses:
+        200:
+          description: "Success."
+          schema:
+            type: string
+        400:
+          description: "There was some error."
+  "/person":
+    get:
+      description: "get person report"
+      operationId: "get_persons_report"
+      parameters:
+        - name: firstName
+          in: query
+          required: true
+          type: string
+        - name: lastName
+          in: query
+          required: true
+          type: string
+        - name: token
+          in: query
+          required: true
+          type: string
+      responses:
+        200:
+          description: "Success."
+          schema:
+            type: string
+        400:
+          description: "There was some error."
+  "/newPerson":
+    post:
+      description: "sign up - insert a new person"
+      operationId: "insert_person"
+      parameters:
+        - in: body
+          name: newPerson
+          schema:
+            $ref: '#/definitions/NewPerson'
+      responses:
+        200:
+          description: "Success."
+          schema:
+            type: string
+        400:
+          description: "There was some error."
+  "/report":
+    post:
+      description: "create a person report"
+      operationId: "create_report"
+      parameters:
+        - in: body
+          name: report
+          schema:
+            $ref: '#/definitions/Report'
       responses:
         200:
           description: "Success."
