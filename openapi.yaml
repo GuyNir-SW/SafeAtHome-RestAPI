@@ -75,6 +75,28 @@ paths:
             type: string
         400:
           description: "There was some error."
+  "/users/list":
+    get:
+      description: "get users list"
+      operationId: "get_users_list"
+      responses:
+        200:
+          description: "Success."
+          schema:
+            type: string
+        400:
+          description: "There was some error."
+  "/criminals/list":
+    get:
+      description: "get criminals list"
+      operationId: "get_criminals_list"
+      responses:
+        200:
+          description: "Success."
+          schema:
+            type: string
+        400:
+          description: "There was some error."
   "/person":
     get:
       description: "get person report"

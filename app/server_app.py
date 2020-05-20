@@ -1,7 +1,7 @@
 from flask import Flask
 from flask import jsonify
 from flask import request
-
+import logging
 import os
 
 # configs
@@ -12,8 +12,9 @@ class Config:
         pass
 
 class ProductionConfig(Config):
-    MONGODB_HOST = os.environ.get('DATABASE_URL') or "mongodb+srv://tsilahadad:Noam3012@michal-sela-dspmm.gcp.mongodb.net/michal-sela?retryWrites=true&w=majority"
-       #  "mongodb+srv://Michal_sela:hackathon@cluster0-4bsi2.gcp.mongodb.net/Bad_guys?retryWrites=true&w=majority"
+    MONGODB_HOST = os.environ.get('DATABASE_URL') or \
+                   "mongodb+srv://Michal_sela:hackathon@cluster0-4bsi2.gcp.mongodb.net/Bad_guys?retryWrites=true&w=majority"
+                   # "mongodb+srv://tsilahadad:Noam3012@michal-sela-dspmm.gcp.mongodb.net/michal-sela?retryWrites=true&w=majority"
 
 
     MONGODB_DB = os.environ.get('DB_NAME') or "Bad_guys"
@@ -36,10 +37,9 @@ from datetime import datetime
 
 from mongoengine import *
 
-class Criminals(db.Document):
+class Criminal_data(db.Document):
     name = StringField(required=True)
-    birth_year = LongField(required=True)
-    city_of_residence = StringField(required=True)
+    ID_number = LongField(required=True)
     felony = StringField(required=True)
     verdict = LongField(required=True)
     verdict_date = LongField(required=True)
@@ -49,8 +49,7 @@ class Criminals(db.Document):
     def to_json(self):
         json_person = {
             'name': self.name,
-            'birth_year': self.birth_year,
-            'city_of_residence': self.city_of_residence,
+            'ID_number': self.ID_number,
             'felony': self.felony,
             'verdict': self.verdict,
             'verdict_date': self.verdict_date,
@@ -61,9 +60,8 @@ class Criminals(db.Document):
 
     @staticmethod
     def from_json(json_person):
-        return Criminals(name=json_person.get('name'),
-                        birth_year=json_person.get('birth_year'),
-                        city_of_residence=json_person.get('city_of_residence'),
+        return Criminal_data(name=json_person.get('name'),
+                        ID_number=json_person.get('ID_number'),
                         felony=json_person.get('felony'),
                         verdict=json_person.get('verdict'),
                         verdict_date=json_person.get('verdict_date'))
@@ -150,29 +148,78 @@ class Users_reports(db.Document):
 app = Flask(__name__)
 app.config.from_object(config['production'])
 config['production'].init_app(app)
-#app.config['MONGO_HOST'] = "mongodb+srv://tsilahadad:Noam3012@michal-sela-dspmm.gcp.mongodb.net/michal-sela?retryWrites=true&w=majority"
-#app.config["MONGODB_DATABASE"] = 'michal-sela'
+app.config['CORS_HEADERS'] = 'Content-Type'
 db.init_app(app)
 
 
-@app.route('/searchPerson', methods=['GET'])
-def searchPerson():
-    """Search for person info.."""
-    firstName = request.args.get('firstName')
-    lastName = request.args.get('lastName')
-    if firstName is None:
-      return 'No first Name provided.', 400
-    if lastName is None:
-      return 'No last Name provided.', 400
-    result = jsonify({
-            "name": firstName + ' ' + lastName,
-            "birth_year": 1972,
-            "city_of_residence": "נשר",
-            "felony": "החזקת חומרי פדופיליה",
-            "verdict": "24 חודשי מאסר",
-            "verdict_date": "ספט-07"
+def jsonify_results(results):
+    results = jsonify(results)
+    results.headers.add('Access-Control-Allow-Origin', '*')
+    results.headers.add('Access-Control-Allow-Methods', 'PUT, GET, POST, DELETE, OPTIONS')
+    results.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    return results
+
+
+def verify_person(firstName, lastName, token):
+    results = {
+        'token': token,
+        'firstName': firstName,
+        'LastName': lastName
+    }
+    full_name = firstName + ' ' + lastName
+
+    print("verifying {} token: {}".format(full_name, token))
+    criminal_found = Criminal_data.objects(name=full_name).first()
+    print(criminal_found)
+
+    if criminal_found:
+        report = criminal_found.to_json()
+        results.update({
+            'suspected': True,
+            "resultsCount": len(report),
+            'report': report
         })
-    return result, 200
+    else:
+        results.update({
+            'suspected': False,
+            "resultsCount": 0,
+            'report': {}
+        })
+
+    report_exists = Users_reports.objects(token=token).first()
+
+    if report_exists:
+        report_exists.update(**results)
+    else:
+        user_report = Users_reports.from_json(results)
+        user_report.save()
+    return results
+
+
+@app.route('/users/list', methods=['GET'])
+def get_users_list():
+    try:
+        users_list = [user.to_json() for user in Users.objects]
+        result = jsonify_results({
+            "users": users_list
+        })
+        return result, 200
+    except Exception as e:
+        result = jsonify_results({'error': 'An error was occurred: ' + str(e)})
+        return result, 400
+
+
+@app.route('/criminals/list', methods=['GET'])
+def get_criminals_list():
+    try:
+        criminals_list = [criminal.to_json() for criminal in Criminal_data.objects]
+        result = jsonify_results({
+            "criminals": criminals_list
+        })
+        return result, 200
+    except Exception as e:
+        result = jsonify_results({'error': 'An error was occurred: ' + str(e)})
+        return result, 400
 
 
 @app.route('/person', methods=['GET'])
@@ -182,101 +229,95 @@ def get_persons_report():
     person_data = {k: v[0] if len(v) == 1 else v for k, v in
                    person_data.items()}
 
-    if not person_data.get('token'):
-        return jsonify({'error': 'token is missing'}), 400
-    if not person_data.get("firstName"):
-        return jsonify({'error': 'firstName is missing'}), 400
-    if not person_data.get("lastName"):
-        return jsonify({'error': 'lastName is missing'}), 400
-
     token = person_data.get('token')
+    firstName = person_data.get("firstName", '')
+    lastName = person_data.get("lastName", '')
+    if not token and not (firstName and lastName):
+        return jsonify_results({'error': 'Must get token or firstName with lastName'}), 400
+
     try:
+        user_found = Users.objects(token=token) or \
+                     Users.objects(firstName=person_data.get("firstName"),
+                                   LastName=person_data.get("lastName"))
         report_found = Users_reports.objects(token=token) or \
-                       Users_reports.objects(firstName=person_data.get("firstName"), LastName=person_data.get("lastName"))
+                       Users_reports.objects(firstName=person_data.get("firstName"),
+                                             LastName=person_data.get("lastName"))
+        if not user_found:
+            return jsonify_results({'error': 'User didnt sign up'}), 400
+
+        user_details = user_found.first().to_json()
         if report_found:
             reports = [report_.to_json() for report_ in report_found]
-            result = jsonify({
+            result = jsonify_results({
+                "user_details": user_details,
                 "status": "Found report",
                 "resultsCount": len(reports),
                 "items": reports
             })
         else:
-            result = jsonify({
+            result = jsonify_results({
+                "user_details": user_details,
                 "status": "No report was found",
                 "resultsCount": 0,
                 "items": []
             })
+
         return result, 200
     except Exception as e:
-        result = {'error': 'An error was occurred: ' + str(e)}
+        result = jsonify_results({'error': 'An error was occurred: ' + str(e)})
         return result, 400
 
 
 @app.route('/report', methods=['POST', 'PUT'])
 def create_report():
-    person_data = request.form.to_dict(flat=False) or request.args.to_dict(
-        flat=False)
-    person_data = {k: v[0] if len(v) == 1 else v for k, v in
-                   person_data.items()}
+    if request.headers.get('content-type') == 'application/json':
+        person_data = request.get_json(force=True)
+    else:
+        person_data = request.form.to_dict(flat=False) or request.args.to_dict(
+            flat=False)
+        person_data = {k: v[0] if len(v) == 1 else v for k, v in
+                       person_data.items()}
+    logging.info("params received: " + str(person_data))
 
     token = person_data.get('token')
-    if not token:
-        return jsonify({'error': 'token is missing'}), 400
+
+    if not person_data.get('token'):
+        return jsonify_results({'error': 'token is missing'}), 400
     if not person_data.get("firstName"):
-        return jsonify({'error': 'firstName is missing'}), 400
+        return jsonify_results({'error': 'firstName is missing'}), 400
     if not person_data.get("lastName"):
-        return jsonify({'error': 'lastName is missing'}), 400
+        return jsonify_results({'error': 'lastName is missing'}), 400
 
-    full_name = person_data.get("firstName") + ' ' + person_data.get("lastName")
-    results = {
-        'token': token,
-        'firstName': person_data.get("firstName"),
-        'LastName': person_data.get("lastName")
-    }
-
+    firstName = person_data.get("firstName")
+    lastName = person_data.get("lastName")
     try:
-        print([criminal.to_json() for criminal in Criminals.objects])
-        criminal_found = Criminals.objects(name=full_name)
-        if criminal_found:
-            report = [criminal.to_json() for criminal in criminal_found]
-            results.update({
-                'suspected': True,
-                "resultsCount": len(report),
-                'report': report
-            })
-
-        else:
-            results.update({
-                'suspected': False,
-                "resultsCount": 0,
-                'report': {}
-            })
-
-        report_exists = Users_reports.objects(token=token).first()
-        if report_exists:
-            report_exists.update(**results)
-        else:
-            user_report = Users_reports.from_json(results)
-            user_report.save()
-
+        results = verify_person(firstName, lastName, token)
+        results = jsonify_results(results)
         return results, 200
 
     except Exception as e:
-        result = {'error': 'An error was occurred: ' + str(e)}
+        result = jsonify_results({'error': 'An error was occurred: ' + str(e)})
         return result, 400
 
 
 @app.route('/newPerson', methods=['POST', 'PUT'])
 def insert_person():
-    person_data = request.form.to_dict(flat=False) or request.args.to_dict(flat=False)
-    person_data = {k: v[0] if len(v) == 1 else v for k, v in person_data.items()}
+    if request.headers.get('content-type') == 'application/json':
+        print(request.json)
+        person_data = request.json or request.get_json(force=True)
+    else:
+        person_data = request.form.to_dict(flat=False) or request.args.to_dict(flat=False)
+        person_data = {k: v[0] if len(v) == 1 else v for k, v in person_data.items()}
+    logging.info("params received: " + str(person_data))
 
     if not person_data.get("id_num"):
-        return {'error': "id_num is missing"}, 400
+        return jsonify_results({'error': "id_num is missing"}), 400
     if not person_data.get("firstName"):
-        return jsonify({'error': 'firstName is missing'}), 400
+        return jsonify_results({'error': 'firstName is missing'}), 400
     if not person_data.get("lastName"):
-        return jsonify({'error': 'lastName is missing'}), 400
+        return jsonify_results({'error': 'lastName is missing'}), 400
+    if not person_data.get("token"):
+        return jsonify_results({'error': 'token is missing'}), 400
 
     try:
         user_exists = Users.objects(id_num=person_data.get("id_num"))
@@ -291,10 +332,16 @@ def insert_person():
             results = {"status": "New user was inserted",
                        "user_details": person_data}
 
-        return jsonify(results), 201
+        logging.info("results: " + str(results))
+        results.update({
+            "verification_results": verify_person(person_data.get("firstName"),
+                                                  person_data.get("lastName"),
+                                                  person_data.get("token"))})
+        results = jsonify_results(results)
+        return results, 201
 
     except Exception as e:
-        result = {'error': 'An error was occurred: ' + str(e)}
+        result = jsonify_results({'error': 'An error was occurred: ' + str(e)})
         return result, 400
 
 

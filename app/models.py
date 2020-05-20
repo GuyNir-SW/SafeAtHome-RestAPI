@@ -1,15 +1,8 @@
-import time
-from datetime import datetime
-
 from mongoengine import *
 
-from .extensions import db
-
-
-class Criminals(db.Document):
+class Criminal_data(db.Document):
     name = StringField(required=True)
-    birth_year = LongField(required=True)
-    city_of_residence = StringField(required=True)
+    ID_number = LongField(required=True)
     felony = StringField(required=True)
     verdict = LongField(required=True)
     verdict_date = LongField(required=True)
@@ -19,8 +12,7 @@ class Criminals(db.Document):
     def to_json(self):
         json_person = {
             'name': self.name,
-            'birth_year': self.birth_year,
-            'city_of_residence': self.city_of_residence,
+            'ID_number': self.ID_number,
             'felony': self.felony,
             'verdict': self.verdict,
             'verdict_date': self.verdict_date,
@@ -31,9 +23,8 @@ class Criminals(db.Document):
 
     @staticmethod
     def from_json(json_person):
-        return Criminals(name=json_person.get('name'),
-                        birth_year=json_person.get('birth_year'),
-                        city_of_residence=json_person.get('city_of_residence'),
+        return Criminal_data(name=json_person.get('name'),
+                        ID_number=json_person.get('ID_number'),
                         felony=json_person.get('felony'),
                         verdict=json_person.get('verdict'),
                         verdict_date=json_person.get('verdict_date'))
