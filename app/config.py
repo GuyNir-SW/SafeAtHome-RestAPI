@@ -8,8 +8,7 @@ class Config:
         pass
 
 class ProductionConfig(Config):
-    MONGODB_HOST = os.environ.get('DATABASE_URL') or \
-                   "mongodb+srv://Michal_sela:hackathon@cluster0-4bsi2.gcp.mongodb.net/Bad_guys?retryWrites=true&w=majority"
+    MONGODB_HOST = os.environ.get('DATABASE_URL')
 
 
     MONGODB_DB = os.environ.get('DB_NAME') or "Bad_guys"
